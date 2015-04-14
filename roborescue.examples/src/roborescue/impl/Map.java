@@ -20,8 +20,8 @@ public class Map {
     public static final Integer WIDTH = 2427;
     public static final Integer HEIGHT = 1500;
 
-    private static final int discr_width = 50;
-    private static final int discr_heigth = 50;
+    public static final int discr_width = 50;
+    public static final int discr_heigth = 50;
     
     private Point objective;
     private static Double areaDeSeguranca_px = 75.0;

@@ -8,13 +8,17 @@ import atuador.AtuadorAssincrono;
 import jason.RoborescueEnv;
 import jason.asSyntax.Structure;
 import java.awt.Point;
+import java.io.IOException;
 import java.rmi.RemoteException;
+import java.util.ArrayList;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import robocode.rescue.RobotInfo;
 import robocode.rescue.interfaces.RMIRobotInterface;
 
 public class TimeLRTAStar extends RoborescueEnv {
 
-    private static final String nomeTime = "TimeTarBuscaA";
+    private static final String nomeTime = "LRTA* HMRJ RL";
     private final int numRobos = 5;
     private RMIRobotInterface[] aliados;
     private RobotInfo[] inimigos;
@@ -22,10 +26,12 @@ public class TimeLRTAStar extends RoborescueEnv {
     private RobotInfo[] robos;
     private AtuadorAssincrono atuador;
     private Boolean primeiraVez = true;
-    
+
     private Point objetivo;
-    private Double raioObjetivo_px = 50.0;
+    private Double raioObjetivo_px = 100.0;
     private Double areaDeSeguranca_px = 50.0;
+
+    private PersistentMap map;
 
     //Para inicializacoes necessarias
     @Override
@@ -94,7 +100,10 @@ public class TimeLRTAStar extends RoborescueEnv {
                 System.out.println(" [" + i + "]: X=" + inimigos[i].getX()
                         + " Y=" + inimigos[i].getY());
             }
-            
+
+            map = new PersistentMap();
+            map.loadProperties();
+
         } catch (RemoteException ex) {
             System.out.println(ex.getMessage());
         }
@@ -106,7 +115,7 @@ public class TimeLRTAStar extends RoborescueEnv {
         return true;
     }
 
-    public void mainLoop() throws RemoteException {
+    public void mainLoop() throws RemoteException, IOException {
         robos = getServerRef().getMyTeamInfo(myTeam);
 
         RobotInfo refem = robos[0];
@@ -121,26 +130,86 @@ public class TimeLRTAStar extends RoborescueEnv {
         // aguarda o robo aliado 3 acabar seu movimento pois eh o que vai
         // mais longe
         if (teamRef[3].getDistanceRemaining() <= 0.1) {
-            if(teamRef[1].getDistanceRemaining() <= 0.1){
-            
-        // Checa estado corrente
-        Point current = new Point(((Double)teamRef[1].getRobotInfo().getX()).intValue(), ((Double)teamRef[1].getRobotInfo().getY()).intValue());
-        // Para cada ação do estado corrente
-        for(:){
-            // calcular o custo (custo do caminho + heirística) para todo vizinho
-            
-            //Atualizar o custo heurística do nó corrente com o menor custo total dos vizinhos
-            
-            // Escolher a ação que leva ao menor custo, se houver impate escolher aleatoriamente;
-            
-            //move para a ação escolhida
-            
-        // fim para cada
+            if (primeiraVez) {
+                inimigos = getServerRef().getEnemyTeamInfo(nomeTime);
+
+                Double posicoes[][] = new Double[(inimigos.length + aliados.length) - 2][2];
+
+                int y = 0;
+                for (RobotInfo info : inimigos) {
+                    posicoes[y][0] = info.getX();
+                    posicoes[y][1] = info.getY();
+
+                    y++;
+                }
+
+                for (RMIRobotInterface info : aliados) {
+                    if (info.getRobotInfo().getRobotIndex() > 1) {
+                        posicoes[y][0] = info.getRobotInfo().getX();
+                        posicoes[y][1] = info.getRobotInfo().getY();
+
+                        y++;
+                    }
+                }
+
+                map.setPosicoes(posicoes);
+
+                // Criação do plano:
+                objetivo = Map.translateToDiscrete(aliados[0].getRobotInfo().getX(), aliados[0].getRobotInfo().getY());
+                map.setObjective(objetivo);
+
+                primeiraVez = false;
+            }
+
+            if (teamRef[1].getDistanceRemaining() <= 0.1) {
+
+                // Checa estado corrente
+//        Point current = new Point(((Double)teamRef[1].getRobotInfo().getX()).intValue(), ((Double)teamRef[1].getRobotInfo().getY()).intValue());
+                State<Point> current = map.getStateForPointDiscrete(teamRef[1].getRobotInfo().getX(), teamRef[1].getRobotInfo().getY());
+
+                if (checkObjetivo(current.getState())) {
+                    map.saveProperties();
+                    System.out.println("Finalizado");
+                    return;
+                }
+
+                // Para cada ação do estado corrente
+                Double cheapAct_cost = -1.0;
+                ArrayList<Action<Point>> cheapAct_list = new ArrayList<>();
+                for (Action<Point> act : current.avaliableStates()) {
+                    // calcular o custo (custo do caminho + heurística) para todo vizinho
+                    Double fN = act.getCostFor() + act.pai.getPathCost() + act.getDestino().getHeuristicCost();
+                    if (cheapAct_cost < 0 || cheapAct_cost > fN) {
+                        cheapAct_cost = fN;
+                        cheapAct_list = new ArrayList<>();
+                        cheapAct_list.add(act);
+                    } else {
+                        if (fN == cheapAct_cost) {
+                            cheapAct_list.add(act);
+                        }
+                    }
+                    // fim para cada
+                }
+
+                //Atualizar o custo heurística do nó corrente com o menor custo total dos vizinhos
+                current.setOverwriteHeuristic(cheapAct_cost);
+                map.setCostForPoint(cheapAct_cost, current.getState());
+
+                // Escolher a ação que leva ao menor custo, se houver impate escolher aleatoriamente;
+                Action<Point> toDo = chooseFromList(cheapAct_list);
+
+                //move para a ação escolhida
+                moverParaEstado(aliados[1], toDo.getDestino().getState());
+
+            }
         }
-        }
-        }
-        
-        
+
+    }
+
+    private void moverParaEstado(RMIRobotInterface rmiRobotInterface, Point pop) throws RemoteException {
+        Point x_y = Map.translateToPx(pop);
+
+        atuador.irPara(rmiRobotInterface, x_y.x, x_y.y);
     }
 
     @Override
@@ -154,7 +223,7 @@ public class TimeLRTAStar extends RoborescueEnv {
     }
 
     public static void main(String[] args) {
-        TimeAStar team = new TimeAStar();
+        TimeLRTAStar team = new TimeLRTAStar();
         team.init(new String[]{nomeTime, "localhost"});
 
         while (true) {
@@ -167,8 +236,26 @@ public class TimeLRTAStar extends RoborescueEnv {
                 ex.printStackTrace();
             } catch (InterruptedException ex) {
                 ex.printStackTrace();
+            } catch (IOException ex) {
+                Logger.getLogger(TimeLRTAStar.class.getName()).log(Level.SEVERE, null, ex);
             }
         }
+    }
+
+    private Action<Point> chooseFromList(ArrayList<Action<Point>> cheapAct_list) {
+        if (cheapAct_list.isEmpty()) {
+            return null;
+        }
+
+        return cheapAct_list.get((int) (Math.random() * cheapAct_list.size()));
+    }
+
+    private boolean checkObjetivo(Point state) {
+        if (map.distance_px(state, objetivo) <= raioObjetivo_px) {
+            return true;
+        }
+
+        return false;
     }
 
 }

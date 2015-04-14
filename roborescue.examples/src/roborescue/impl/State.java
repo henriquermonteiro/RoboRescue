@@ -17,10 +17,12 @@ public abstract class State<T> implements Comparable<State<T>>{
     protected Double cost;
     protected Action<T> cameFrom;
     protected Double pathCost;
+    protected Double overwriteHeuristic;
 
     public State(T state) {
         this.state = state;
         pathCost = 0.0;
+        overwriteHeuristic = -1.0;
     }
 
     public Action<T> getCameFrom() {
@@ -72,9 +74,17 @@ public abstract class State<T> implements Comparable<State<T>>{
     public T getState(){
         return state;
     }
+
+    public Double getOverwriteHeuristic() {
+        return overwriteHeuristic;
+    }
+
+    public void setOverwriteHeuristic(Double overwriteHeuristic) {
+        this.overwriteHeuristic = overwriteHeuristic;
+    }
     
     public Double getHeuristicCost(){
-        return cost;
+        return (overwriteHeuristic >= 0? overwriteHeuristic : cost);
     }
     
     
