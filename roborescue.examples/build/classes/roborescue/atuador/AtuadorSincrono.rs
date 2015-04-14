@@ -1,0 +1,1 @@
+atuador.AtuadorSincrono

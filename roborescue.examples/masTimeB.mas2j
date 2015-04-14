@@ -1,0 +1,7 @@
+
+MAS roboAction {
+    infrastructure: Centralised
+    environment: roborescue.examples.TimeBTeamEnv("Warriors", "localhost")
+    agents: agente;
+    classpath: "../roborescue/roborescue.jar";
+}
