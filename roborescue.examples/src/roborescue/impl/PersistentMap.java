@@ -11,8 +11,6 @@ import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.Properties;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 
 /**
  *
@@ -42,7 +40,7 @@ public class PersistentMap extends Map {
             inp.close();
             if (!prop.isEmpty()) {
                 for (String key : prop.stringPropertyNames()) {
-                    String[] parts = key.split("|");
+                    String[] parts = key.split(":");
                     if (parts.length == 2) {
                         heuristica[Integer.parseInt(parts[0])][Integer.parseInt(parts[1])] = Double.parseDouble(prop.getProperty(key));
                     }
@@ -64,6 +62,10 @@ public class PersistentMap extends Map {
         }
     }
 
+    public Double getHeuristica(Point locale) {
+        return heuristica[locale.x][locale.y];
+    }
+
     @Override
     public void setObjective(Point objective) {
         super.setObjective(objective);
@@ -71,20 +73,40 @@ public class PersistentMap extends Map {
         if (formation_flag) {
             for (int k = 0; k < heuristica.length; k++) {
                 for (int j = 0; j < heuristica[0].length; j++) {
-                    prop.setProperty(k + "|" + j, distance_px(new Point(k, j), objective).toString());
-                    dirty = true;
+//                    prop.setProperty(k + "|" + j, distance_px(new Point(k, j), objective).toString());
+                    heuristica[k][j] = distance_px(new Point(k, j), objective);
                 }
             }
+            
+            dirty = true;
 
             formation_flag = false;
         }
+    }
+
+    @Override
+    public State<Point> getStateForPointDiscrete(double x, double y) {
+        State<Point> sta = super.getStateForPointDiscrete(x, y);
+        
+        sta.setOverwriteHeuristic(heuristica[sta.getState().x][sta.getState().y]);
+        
+        return sta;
+    }
+
+    @Override
+    public State<Point> getStateForPoint(Point p) {
+        State<Point> sta = super.getStateForPoint(p);
+        
+        sta.setOverwriteHeuristic(heuristica[sta.getState().x][sta.getState().y]);
+        
+        return sta;
     }
 
     public void saveProperties() throws IOException {
         if (dirty) {
             for (int k = 0; k < heuristica.length; k++) {
                 for (int j = 0; j < heuristica[0].length; j++) {
-                    prop.setProperty(k + "|" + j, (heuristica[k][j] != null ? heuristica[k][j].toString() : "0.0"));
+                    prop.setProperty(k + ":" + j, (heuristica[k][j] != null ? heuristica[k][j].toString() : "0.0"));
                 }
             }
 

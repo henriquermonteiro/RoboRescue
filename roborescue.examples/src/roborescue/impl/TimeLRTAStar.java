@@ -177,6 +177,9 @@ public class TimeLRTAStar extends RoborescueEnv {
                 Double cheapAct_cost = -1.0;
                 ArrayList<Action<Point>> cheapAct_list = new ArrayList<>();
                 for (Action<Point> act : current.avaliableStates()) {
+                    //carregar custo da heurística:
+                    act.getDestino().setOverwriteHeuristic(map.getHeuristica(act.getDestino().getState()));
+                    
                     // calcular o custo (custo do caminho + heurística) para todo vizinho
                     Double fN = act.getCostFor() + act.pai.getPathCost() + act.getDestino().getHeuristicCost();
                     if (cheapAct_cost < 0 || cheapAct_cost > fN) {
